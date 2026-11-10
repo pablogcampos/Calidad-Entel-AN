@@ -12,7 +12,11 @@ test("origin validation supports local and Railway HTTPS without trusting forwar
   assert.equal(isAllowedOrigin(req("null"), railway), false);
   assert.equal(isAllowedOrigin(req("http://quality.up.railway.app"), railway), false);
   assert.equal(isAllowedOrigin(req("https://custom.example"), {...railway, PUBLIC_ORIGIN:"https://custom.example/"}), true);
-  assert.equal(isAllowedOrigin(req("https://quality.up.railway.app"), {...railway, PUBLIC_ORIGIN:"https://custom.example"}), false);
+  assert.equal(isAllowedOrigin(req("https://quality.up.railway.app"), {...railway, PUBLIC_ORIGIN:"https://custom.example"}), true);
+  assert.equal(isAllowedOrigin(req("https://quality.up.railway.app"), {...railway, PUBLIC_ORIGIN:"invalid"}), true);
+  assert.equal(isAllowedOrigin(req("https://attacker.example"), {...railway, PUBLIC_ORIGIN:"https://custom.example"}), false);
+  assert.equal(isAllowedOrigin(req("https://quality.up.railway.app.attacker.example"), railway), false);
+  assert.equal(isAllowedOrigin(req("https://quality.up.railway.app:8443"), railway), false);
   assert.equal(isAllowedOrigin(req("https://custom.example"), {PUBLIC_ORIGIN:"invalid"}), false);
 });
 

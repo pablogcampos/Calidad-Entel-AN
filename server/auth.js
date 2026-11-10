@@ -50,13 +50,15 @@ function token(req) {
 export function isAllowedOrigin(req, env = process.env) {
   const origin = req.headers.origin;
   if (!origin) return true;
-  const configured = env.PUBLIC_ORIGIN || (env.RAILWAY_PUBLIC_DOMAIN ? `https://${env.RAILWAY_PUBLIC_DOMAIN}` : "");
-  try {
-    const expected = new URL(configured || `${req.protocol}://${req.get("host")}`).origin;
-    return origin !== "null" && origin === expected;
-  } catch {
-    return false;
-  }
+  if (origin === "null") return false;
+  const configured = [env.PUBLIC_ORIGIN, env.RAILWAY_PUBLIC_DOMAIN ? `https://${env.RAILWAY_PUBLIC_DOMAIN}` : ""].filter(Boolean);
+  const candidates = configured.length ? configured : [`${req.protocol}://${req.get("host")}`];
+  return candidates.some(value => {
+    try {
+      const url = new URL(value);
+      return ["http:","https:"].includes(url.protocol) && !url.username && !url.password && origin === url.origin;
+    } catch { return false; }
+  });
 }
 export function installAuth(app, jsonParser, onUsersChanged = () => {}) {
   app.use("/api", (req,res,next) => {
