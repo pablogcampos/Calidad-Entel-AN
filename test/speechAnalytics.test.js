@@ -5,7 +5,15 @@ const M=globalThis.SpeechModel;
 const row=(id,fields={})=>({ID:id,Archivo:id+'.mp3',Asesor:'Test advisor',Version:'V2','Fecha de la llamada':'2026-10-19','Nota de la ficha (%)':75,'Puntaje obtenido':75,'Peso aplicable':100,'Cero tolerancia':'NO DETECTADA','NV-1.1 Saludo':'Si','NV-2.1 Sondeo':'No','Habilidad: cierre':'2',...fields});
 test('speech validates required fields, dates, versions and numeric scores',()=>{
  assert.equal(M.parseRows([row('a')]).errors.length,0);
- for(const patch of [{ID:''},{Version:'V3'},{'Fecha de la llamada':'2026-02-30'},{'Nota de la ficha (%)':120},{'Peso aplicable':0}])assert.equal(M.parseRows([row('a',patch)]).errors.length,1);
+ for(const patch of [{ID:''},{Version:'V4'},{'Fecha de la llamada':'2026-02-30'},{'Nota de la ficha (%)':120},{'Peso aplicable':0}])assert.equal(M.parseRows([row('a',patch)]).errors.length,1);
+});
+test('V3 and non-applicable unscored calls are preserved without diluting scores',()=>{
+ const blank={'Nota de la ficha (%)':'','Peso aplicable':'','Puntaje obtenido':''};
+ const parsed=M.parseRows([row('a',{Version:'V3'}),row('b',{...blank,'Ficha no corresponde':'Si'})]);
+ assert.equal(parsed.errors.length,0);assert.equal(parsed.rows[1].score,null);
+ assert.equal(M.summary(parsed.rows).average,75);assert.equal(M.summary(parsed.rows).notApplicable,1);
+ assert.equal(M.summary([parsed.rows[1]]).average,null);assert.equal(M.filter(parsed.rows,{max:'80'}).length,1);
+ assert.equal(M.parseRows([row('c',blank)]).errors.length,1);
 });
 test('speech preserves source score and critical evidence independently',()=>{
  const result=M.parseRows([row('a',{'Cero tolerancia':'DETECTADA','Nota de la ficha (%)':88})]).rows[0];

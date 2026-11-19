@@ -16,7 +16,7 @@
   }
   function parseRows(rows){
     if(!Array.isArray(rows)||!rows.length||rows.length>5000)throw Error('Importa entre 1 y 5000 filas.');
-    const required=['ID','Archivo','Asesor','Version','Fecha de la llamada','Nota de la ficha (%)','Puntaje obtenido','Peso aplicable','Cero tolerancia'];
+    const required=['ID','Archivo','Asesor','Version','Fecha de la llamada','Cero tolerancia'];
     const parsed=[],errors=[];
     rows.forEach((raw,i)=>{
       try{
@@ -25,19 +25,20 @@
         const byName=Object.fromEntries(Object.entries(source).map(([k,v])=>[norm(k),v]));
         for(const k of required)if(!clean(byName[norm(k)]))throw Error('Falta '+k);
         const get=k=>byName[norm(k)]||'';
+        const notApplicable=norm(get('Ficha no corresponde'))==='si';
         const score=number(get('Nota de la ficha (%)')),points=number(get('Puntaje obtenido')),weight=number(get('Peso aplicable'));
-        if(!Number.isFinite(score)||score<0||score>100||!Number.isFinite(points)||!Number.isFinite(weight)||weight<=0||points<0||points>weight)throw Error('Nota, puntaje o peso invalido.');
+        if(!(notApplicable&&score===null&&points===null&&weight===null)&&(!Number.isFinite(score)||score<0||score>100||!Number.isFinite(points)||!Number.isFinite(weight)||weight<=0||points<0||points>weight))throw Error('Nota, puntaje o peso invalido.');
         const criteria=Object.keys(source).filter(k=>/^NV-/.test(k)&&!k.includes(' — '));
         if(!criteria.length)throw Error('Faltan criterios NV de la ficha No venta.');
         const version=get('Version').toUpperCase();
-        if(!['V1','V2'].includes(version))throw Error('Version no soportada: '+version);
+        if(!['V1','V2','V3'].includes(version))throw Error('Version no soportada: '+version);
         const critical=norm(get('Cero tolerancia'));
         if(!['detectada','no detectada'].includes(critical))throw Error('Cero tolerancia invalida.');
         const callDate=date(raw['Fecha de la llamada']??get('Fecha de la llamada'));
         parsed.push({id:get('ID'),file:get('Archivo'),advisor:get('Asesor'),version,callDate,uploadDate:get('Fecha'),
-          score,points,weight,critical:critical==='detectada',codes:get('Cero tolerancia: codigos'),duration:number(get('Duracion (min)')),
+          score,points,weight,notApplicable,critical:critical==='detectada',codes:get('Cero tolerancia: codigos'),duration:number(get('Duracion (min)')),
           type:get('Tipo de llamada'),segment:get('Segmento detectado'),reason:get('Motivo de no venta'),next:get('Siguiente paso'),recovery:get('Recuperabilidad'),source,
-          warnings:Math.abs(score-points/weight*100)>0.15?['La nota no coincide con puntaje / peso; se conserva la nota del SA.']:[],row:i+2});
+          warnings:!notApplicable&&Math.abs(score-points/weight*100)>0.15?['La nota no coincide con puntaje / peso; se conserva la nota del SA.']:[],row:i+2});
       }catch(e){errors.push({row:i+2,message:e.message});}
     });
     return {rows:parsed,errors};
@@ -70,25 +71,27 @@
     const start=f.from||f.to,end=f.to||f.from;
     return base.filter(r=>(!start||r.callDate>=start)&&(!end||r.callDate<=end)&&
       ['advisor','segment','type','reason','recovery'].every(k=>!f[k]||r[k]===f[k])&&
-      (!f.critical||(f.critical==='yes')===r.critical)&&(!f.min||r.score>=Number(f.min))&&(!f.max||r.score<=Number(f.max))&&
+      (!f.critical||(f.critical==='yes')===r.critical)&&(!f.min||(Number.isFinite(r.score)&&r.score>=Number(f.min)))&&(!f.max||(Number.isFinite(r.score)&&r.score<=Number(f.max)))&&
       (!f.search||norm(r.file+' '+r.id+' '+r.advisor).includes(norm(f.search))));
   }
   function summary(rows){
+    const scored=items=>items.filter(r=>!r.notApplicable&&Number.isFinite(r.score));
+    const average=items=>{const valid=scored(items);return valid.length?valid.reduce((sum,r)=>sum+r.score,0)/valid.length:null;};
     const categories=field=>Object.entries(rows.reduce((a,r)=>{const v=r[field]||r.source[field]||'Sin dato';a[v]=(a[v]||0)+1;return a;},{})).map(([label,count])=>({label,count})).sort((a,b)=>b.count-a.count);
     const allKeys=[...new Set(rows.flatMap(r=>Object.keys(r.source)))];
     const criteria=allKeys.filter(k=>k.startsWith('NV-')&&!k.includes(' — ')).map(label=>{
       let yes=0,no=0,na=0,missing=0;
-      rows.forEach(r=>{const v=norm(r.source[label]);if(v==='si')yes++;else if(v==='no')no++;else if(['no aplica','no_aplica'].includes(v))na++;else missing++;});
+      rows.filter(r=>!r.notApplicable).forEach(r=>{const v=norm(r.source[label]);if(v==='si')yes++;else if(v==='no')no++;else if(['no aplica','no_aplica'].includes(v))na++;else missing++;});
       return {label,yes,no,na,missing,applicable:yes+no,rate:yes+no?no/(yes+no)*100:null};
     }).sort((a,b)=>(b.rate??-1)-(a.rate??-1));
     const skills=allKeys.filter(k=>k.startsWith('Habilidad:')&&!k.includes(' — ')).map(label=>{
       const values=rows.map(r=>number(r.source[label])).filter(v=>Number.isFinite(v));
       return {label,n:values.length,average:values.length?values.reduce((a,b)=>a+b,0)/values.length:null};
     });
-    const advisors=[...new Set(rows.map(r=>r.advisor))].map(advisor=>{const a=rows.filter(r=>r.advisor===advisor);return {advisor,n:a.length,average:a.reduce((s,r)=>s+r.score,0)/a.length,critical:a.filter(r=>r.critical).length,high:a.filter(r=>r.recovery==='ALTA').length};});
-    const trend=[...new Set(rows.map(r=>r.callDate))].sort().map(day=>{const a=rows.filter(r=>r.callDate===day);return {day,n:a.length,average:a.reduce((s,r)=>s+r.score,0)/a.length};});
-    return {n:rows.length,advisors,average:rows.length?rows.reduce((s,r)=>s+r.score,0)/rows.length:null,
-      passed:rows.filter(r=>r.score>=90).length,critical:rows.filter(r=>r.critical).length,high:rows.filter(r=>r.recovery==='ALTA').length,
+    const advisors=[...new Set(rows.map(r=>r.advisor))].map(advisor=>{const a=rows.filter(r=>r.advisor===advisor);return {advisor,n:a.length,average:average(a),critical:a.filter(r=>r.critical).length,high:a.filter(r=>r.recovery==='ALTA').length};});
+    const trend=[...new Set(rows.map(r=>r.callDate))].sort().map(day=>{const a=scored(rows.filter(r=>r.callDate===day));return {day,n:a.length,average:average(a)};}).filter(r=>r.n);
+    return {n:rows.length,scoredCount:scored(rows).length,notApplicable:rows.filter(r=>r.notApplicable).length,advisors,average:average(rows),
+      passed:scored(rows).filter(r=>r.score>=90).length,critical:rows.filter(r=>r.critical).length,high:rows.filter(r=>r.recovery==='ALTA').length,
       criteria,skills,trend,reasons:categories('reason'),objections:categories('Objeci\u00f3n principal'),loss:categories('Momento de la p\u00e9rdida'),recoveries:categories('recovery'),next:categories('next'),
       criticalCodes:Object.entries(rows.filter(r=>r.critical).reduce((a,r)=>{for(const code of new Set(r.codes.split(/[,;]+/).map(clean).filter(Boolean)))a[code]=(a[code]||0)+1;return a;},{})).map(([label,count])=>({label,count})),
       promotion:categories('Fin de la promoci\u00f3n')};

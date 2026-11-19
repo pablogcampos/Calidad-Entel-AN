@@ -32,14 +32,14 @@ async function importSpeechTransaction(user,payload){
     const staffing=await read('staffing'),users=await read('users_v1');
     const evaluations=await read('evaluations_v1'),feedbacks=await read('feedback_records_v2'),deleted=await read('deleted_evaluations_v1');
     const occupied=new Set([...evaluations,...deleted].map(e=>String(e?.id||e?.idEvaluacion||e)));
-    const candidates=model.uniqueCalls(parsed.rows).filter(r=>!occupied.has(speechEvaluationId(r)));
+    const candidates=model.uniqueCalls(parsed.rows).filter(r=>!r.notApplicable&&!occupied.has(speechEvaluationId(r)));
     const unmatched=[...new Set(candidates.filter(r=>resolveSpeechAdvisor(r,staffing,users).pending).map(r=>r.advisor))];
     const batch={id:randomUUID(),file:String(payload.file||'Importacion Excel').slice(0,250),createdAt:new Date().toISOString(),createdBy:user.usuario,count:plan.added.length,duplicates:plan.duplicates.length};
     const generated=candidates.map(row=>buildSpeechEvaluation({row,user,staffing,users,batch,now:batch.createdAt}));
     const feedbackIds=new Set(feedbacks.map(f=>String(f.id)));
     for(const {feedback} of generated)if(feedback){if(feedbackIds.has(String(feedback.id)))fail('Conflicto de identificador de feedback; no se guardo la carga.');feedbackIds.add(String(feedback.id));}
     const report={total:payload.rows.length,valid:parsed.rows.length,newCount:plan.added.length,duplicates:plan.duplicates.length,conflicts:plan.conflicts,errors:parsed.errors,unmatched,warnings:parsed.rows.flatMap(r=>r.warnings.map(message=>({row:r.row,message}))),sample:plan.added.slice(0,5)};
-    Object.assign(report,{evaluationCount:generated.length,feedbackCount:generated.filter(g=>g.feedback).length,pendingCriteria:[...new Set(generated.flatMap(g=>g.evaluation.saPendingCriteria))]});
+    Object.assign(report,{notApplicable:parsed.rows.filter(r=>r.notApplicable).length,evaluationCount:generated.length,feedbackCount:generated.filter(g=>g.feedback).length,pendingCriteria:[...new Set(generated.flatMap(g=>g.evaluation.saPendingCriteria))]});
     if(payload.commit!==true){await db.query('ROLLBACK');return {...report,committed:false};}
     if(parsed.errors.length||plan.conflicts.length)fail('Corrige filas invalidas o conflictos antes de importar.');
     if(unmatched.length&&!payload.allowUnmatched)fail('Confirma los asesores sin coincidencia en Dotacion.');
