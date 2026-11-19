@@ -32,6 +32,8 @@ window.SpeechAnalytics=function SpeechAnalytics({currentUser,onImported}){
  useEffect(()=>{load();},[]);
  const setFilter=(key,value)=>{setPage(0);setFilters(old=>({...old,[key]:value}));};
  const rows=useMemo(()=>M.filter(records,filters),[records,filters]);
+ const importedCount=useMemo(()=>M.filter(records,{...filters,allVersions:true}).length,[records,filters]);
+ const missingLoadDates=useMemo(()=>records.filter(r=>!M.uploadDay(r)).length,[records]);
  const stats=useMemo(()=>M.summary(rows),[rows]);
  const sorted=useMemo(()=>[...rows].sort((a,b)=>b.callDate.localeCompare(a.callDate)||a.advisor.localeCompare(b.advisor)),[rows]);
  const invalidDates=filters.from&&filters.to&&filters.from>filters.to;
@@ -62,12 +64,14 @@ window.SpeechAnalytics=function SpeechAnalytics({currentUser,onImported}){
   h('nav',{className:'sa-tabs','aria-label':'Tipo de analisis'},[['no_venta','No venta'],['venta','Validacion de venta']].map(([value,label])=>h('button',{key:value,className:tab===value?'sa-primary':'',onClick:()=>setTab(value)},label))),
   tab==='venta'?h('section',{className:'sa-empty'},h('h2',null,'Validacion de venta'),h('p',null,'Pendiente de configurar la plantilla del SA para este tipo de analisis.')):h(React.Fragment,null,
    error&&h('div',{role:'alert',className:'sa-error'},error),message&&h('div',{role:'status',className:'sa-success'},message),
-   h('section',{className:'sa-filters'},h('label',null,'Desde',h('input',{type:'date',value:filters.from||'',onChange:e=>setFilter('from',e.target.value)})),h('label',null,'Hasta',h('input',{type:'date',value:filters.to||'',onChange:e=>setFilter('to',e.target.value)})),select('advisor','Asesor'),select('version','Version'),select('segment','Segmento detectado'),select('type','Tipo de llamada'),select('reason','Motivo de no venta'),select('recovery','Recuperabilidad'),
+   h('section',{className:'sa-filters'},h('label',null,'Tipo de fecha',h('select',{value:filters.dateType||'upload',onChange:e=>setFilter('dateType',e.target.value)},h('option',{value:'upload'},'Fecha de carga SA'),h('option',{value:'call'},'Fecha de llamada'))),h('label',null,'Desde',h('input',{type:'date',value:filters.from||'',onChange:e=>setFilter('from',e.target.value)})),h('label',null,'Hasta',h('input',{type:'date',value:filters.to||'',onChange:e=>setFilter('to',e.target.value)})),select('advisor','Asesor'),select('version','Version'),select('segment','Segmento detectado'),select('type','Tipo de llamada'),select('reason','Motivo de no venta'),select('recovery','Recuperabilidad'),
     h('label',null,'Cero tolerancia',h('select',{value:filters.critical||'',onChange:e=>setFilter('critical',e.target.value)},h('option',{value:''},'Todas'),h('option',{value:'yes'},'Detectada'),h('option',{value:'no'},'No detectada'))),
     h('label',null,'Nota minima',h('input',{type:'number',min:0,max:100,value:filters.min||'',onChange:e=>setFilter('min',e.target.value)})),h('label',null,'Nota maxima',h('input',{type:'number',min:0,max:100,value:filters.max||'',onChange:e=>setFilter('max',e.target.value)})),
     h('label',null,'Buscar',h('input',{type:'search',placeholder:'ID, archivo o asesor',value:filters.search||'',onChange:e=>setFilter('search',e.target.value)})),h('button',{onClick:()=>{setFilters({});setPage(0);}},'Limpiar')),
    invalidDates&&h('p',{role:'alert',className:'sa-error'},'La fecha Desde no puede ser posterior a Hasta.'),
    loading?h('p',{role:'status'},'Cargando analisis...'):h(React.Fragment,null,
+    h('p',{className:'sa-muted'},`${importedCount} analisis importados coinciden con los filtros. ${stats.n} llamadas mostradas; ${importedCount-stats.n} versiones adicionales omitidas.`),
+    filters.dateType!=='call'&&missingLoadDates>0&&h('p',{className:'sa-muted'},`${missingLoadDates} registros sin fecha de carga SA valida: no aparecen al filtrar por esa fecha.`),
     h('div',{className:'sa-kpis'},[['Llamadas unicas',stats.n],['Asesores',stats.advisors.length],['Nota promedio SA',pct(stats.average)],['Alcanzan 90%',stats.passed+' / '+stats.scoredCount],['Cero tolerancia',stats.critical],['Recuperabilidad alta',stats.high]].map(([label,value])=>h('div',{key:label},h('small',null,label),h('strong',null,value)))),
     stats.notApplicable>0&&h('p',{className:'sa-muted'},`${stats.notApplicable} llamadas: Ficha no corresponde. Conservadas en SA, excluidas de notas PUE y feedbacks automaticos.`),
     h('p',{className:'sa-muted'},'Resultados originales del SA. Las evaluaciones generadas alimentan el dashboard operativo con los pesos de la PUE; su nota puede diferir de la nota SA. Sin filtro de version se usa la mas reciente por archivo.'),

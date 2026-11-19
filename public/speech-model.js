@@ -66,10 +66,25 @@
     for(const r of rows){const k=norm(r.file);const old=map.get(k);if(!old||r.version.localeCompare(old.version)>0)map.set(k,r);}
     return [...map.values()];
   }
+  function uploadDay(r){
+    const value=clean(r.uploadDate||r.source?.Fecha);
+    if(!value)return '';
+    const numeric=Number(value);
+    try{
+      if(Number.isFinite(numeric)&&numeric>20000&&numeric<100000)return date(numeric);
+      const local=value.match(/^(\d{2})\/(\d{2})\/(\d{4})(?:\s|$)/);
+      return date(local?`${local[3]}-${local[2]}-${local[1]}`:value);
+    }catch{return '';}
+  }
   function filter(rows,f={}){
-    const base=f.version?rows.filter(r=>r.version===f.version):uniqueCalls(rows);
     const start=f.from||f.to,end=f.to||f.from;
-    return base.filter(r=>(!start||r.callDate>=start)&&(!end||r.callDate<=end)&&
+    // Select the requested load period before choosing the latest version.
+    const base=rows.filter(r=>{
+      const day=f.dateType==='call'?r.callDate:uploadDay(r);
+      return (!f.version||r.version===f.version)&&(!start||day>=start)&&(!end||(day&&day<=end));
+    });
+    const selected=f.allVersions||f.version?base:uniqueCalls(base);
+    return selected.filter(r=>
       ['advisor','segment','type','reason','recovery'].every(k=>!f[k]||r[k]===f[k])&&
       (!f.critical||(f.critical==='yes')===r.critical)&&(!f.min||(Number.isFinite(r.score)&&r.score>=Number(f.min)))&&(!f.max||(Number.isFinite(r.score)&&r.score<=Number(f.max)))&&
       (!f.search||norm(r.file+' '+r.id+' '+r.advisor).includes(norm(f.search))));
@@ -96,5 +111,5 @@
       criticalCodes:Object.entries(rows.filter(r=>r.critical).reduce((a,r)=>{for(const code of new Set(r.codes.split(/[,;]+/).map(clean).filter(Boolean)))a[code]=(a[code]||0)+1;return a;},{})).map(([label,count])=>({label,count})),
       promotion:categories('Fin de la promoci\u00f3n')};
   }
-  root.SpeechModel={canRead,canImport,norm,parseRows,planImport,key,filter,summary,uniqueCalls};
+  root.SpeechModel={canRead,canImport,norm,parseRows,planImport,key,filter,summary,uniqueCalls,uploadDay};
 })(globalThis);

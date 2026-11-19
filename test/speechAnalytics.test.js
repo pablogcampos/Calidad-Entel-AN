@@ -41,7 +41,20 @@ test('summary excludes not applicable and missing; latest version avoids double 
  assert.equal(s.skills[0].n,1);
  assert.equal(M.filter(rows,{version:'V1'}).length,1);
  assert.equal(M.filter(rows,{from:'2026-10-20'}).length,0);
- assert.equal(M.filter(rows,{from:'2026-10-19',advisor:'Test advisor'}).length,3);
+ assert.equal(M.filter(rows,{dateType:'call',from:'2026-10-19',advisor:'Test advisor'}).length,3);
+});
+test('load date is default, supports historical Excel dates and selects versions within period',()=>{
+ const serial=(Date.UTC(2026,10,18,23,59)-Date.UTC(1899,11,30))/86400000;
+ const rows=M.parseRows([row('a',{Fecha:serial}),row('a',{Fecha:'2026-11-19 01:00:00',Version:'V3'}),row('b',{Fecha:'18/11/2026 10:30'}),row('c')]).rows;
+ assert.equal(M.uploadDay(rows[0]),'2026-11-18');
+ assert.equal(M.filter(rows,{from:'2026-11-18'}).length,2);
+ assert.equal(M.filter(rows,{from:'2026-11-18'})[0].version,'V2');
+ assert.equal(M.filter(rows,{dateType:'call',from:'2026-10-19'}).length,3);
+ assert.equal(M.filter(rows,{from:'2026-11-18',to:'2026-11-19',allVersions:true}).length,3);
+ assert.equal(M.filter(rows,{from:'2026-11-18',to:'2026-11-19'}).length,2);
+ assert.equal(M.filter(rows,{from:'2026-11-18',advisor:'Other'}).length,0);
+ assert.equal(M.uploadDay({uploadDate:'invalid'}),'');
+ assert.equal(M.filter(rows,{}).length,3);
 });
 test('Entel only; import restricted; advisors and other-client admins denied',()=>{
  assert.equal(M.canRead({rol:'admin',platformAccess:['culqi_bcp']}),false);
