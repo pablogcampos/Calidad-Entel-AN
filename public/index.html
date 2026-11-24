@@ -5889,7 +5889,7 @@ function FeedbackCenter({feedbackRecords,statisticalRecords,evaluationRecords,on
               const elapsedMs = createdMs && managedMs ? Math.max(0, managedMs-createdMs) : (createdMs ? Math.max(0,Date.now()-createdMs) : 0);
               const slaLabel = createdMs ? `${Math.floor(elapsedMs/3600000)}h ${Math.floor((elapsedMs%3600000)/60000)}m` : "-";
               return h("tr",{key:record.id,style:{borderBottom:"1px solid rgba(255,255,255,0.03)"}},
-                h("td",{style:{padding:"14px 16px",fontSize:12,color:"#fff",fontWeight:700}},record.asesorNombre || record.assessor,record.source==="speech_analytic"&&h("small",{style:{display:"block",color:THEME.accent}},"SA",record.pendingAdvisorCreation?" · Usuario pendiente de creacion":"")),
+                h("td",{style:{padding:"14px 16px",fontSize:12,color:"#fff",fontWeight:700}},record.asesorNombre || record.assessor,record.source==="speech_analytic"&&h("small",{style:{display:"block",color:THEME.accent}},"SA",record.pendingAdvisorCreation?" · Evaluación Killadata":"")),
                 h("td",{style:{padding:"14px 16px",fontSize:12,color:"#cbd5e1"}},record.auditorNombre || record.authorName || "-"),
                 h("td",{style:{padding:"14px 16px",fontSize:12,color:getFeedbackCategoryTheme(management).color,fontWeight:700}},management),
                 h("td",{style:{padding:"14px 16px",fontSize:12,color:"#cbd5e1"}},classification),
@@ -9020,7 +9020,7 @@ function EvaluationsCenter({currentUser,evaluationRecords,staffing,users,onOpenE
         columns:[
           {key:"fechaEvaluacion",label:"Fecha",render:row=>formatFeedbackDate(row.fechaEvaluacion || row.createdAt)},
           {key:"evaluationMode",label:"Modalidad",render:row=>row.source==="speech_analytic" ? "SA" : isOjtEvaluationRecord(row) ? "OJT" : "Operacion"},
-          {key:"asesorNombre",label:"Asesor",bold:true,render:row=>h("div",null,row.asesorNombre,row.pendingAdvisorCreation&&h("div",{style:{color:THEME.accent,fontSize:11}},"Usuario pendiente de creacion"),row.saPendingCriteria?.length>0&&h("div",{style:{color:"#ffca50",fontSize:11}},"PUE pendiente de revision"))},
+          {key:"asesorNombre",label:"Asesor",bold:true,render:row=>h("div",null,row.asesorNombre,row.pendingAdvisorCreation&&h("div",{style:{color:THEME.accent,fontSize:11}},"Evaluación Killadata"),row.saPendingCriteria?.length>0&&h("div",{style:{color:"#ffca50",fontSize:11}},"PUE pendiente de revision"))},
           {key:"resultadoGeneral",label:"Nota",bold:true},
           {key:"estadoEvaluacion",label:"Estado",render:row=>h("span",{style:{background:row.estadoEvaluacion==="closed" ? "rgba(25,195,125,0.12)" : "rgba(29,43,255,0.12)",border:row.estadoEvaluacion==="closed" ? "1px solid rgba(25,195,125,0.28)" : "1px solid rgba(29,43,255,0.28)",color:row.estadoEvaluacion==="closed" ? "#19C37D" : THEME.primary,padding:"6px 10px",borderRadius:999,fontSize:10,fontWeight:800,letterSpacing:"0.1em",fontFamily:THEME.displayFont}},row.estadoEvaluacion==="closed" ? "CERRADA" : "GUARDADA")},
           {key:"auditorNombre",label:"Auditor"},
@@ -11720,7 +11720,7 @@ function EvaluationModal({isOpen,onClose,feedbackRecord,evaluationRecord,current
       h("div",{style:{display:"flex",alignItems:"center",justifyContent:"space-between",gap:18,marginBottom:24}},
         h("div",null,
           h("div",{style:{fontSize:22,fontWeight:800,color:"#fff",marginBottom:6}},`Ficha de evaluacion de calidad - ${clientName}`),
-          currentEvaluation?.source === "speech_analytic" && h("div",{style:{color:THEME.accent,fontSize:12}},"SA · Speech analytic · ",currentEvaluation.saSourceFile,currentEvaluation.pendingAdvisorCreation ? " · Usuario pendiente de creacion" : ""),
+          currentEvaluation?.source === "speech_analytic" && h("div",{style:{color:THEME.accent,fontSize:12}},"SA · Speech analytic · ",currentEvaluation.saSourceFile,currentEvaluation.pendingAdvisorCreation ? " · Evaluación Killadata" : ""),
           currentEvaluation?.source === "speech_analytic" && currentEvaluation.saPendingCriteria?.length>0 && h("div",{style:{color:"#ffca50",fontSize:12}},"Nota PUE provisional. Revisar: ",currentEvaluation.saPendingCriteria.join(", ")),
           h("div",{style:{fontSize:12,color:"#8b92a5"}},"Formato ponderado: Cumple suma el peso completo, No cumple vale 0 y No aplica no entra al promedio.")
         ),
