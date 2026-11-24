@@ -557,6 +557,13 @@ export function isAutomaticFeedbackBlockedForUser(currentUser, users = []) {
   });
 }
 
+export function canSaveManualFeedback(currentUser,existing,clientId){
+  const role=getRole(currentUser);
+  if (!["admin","analista","formador","supervisor","coordinador"].includes(role)) return false;
+  if (!["supervisor","coordinador"].includes(role)) return true;
+  return existing ? isFeedbackOwner(existing,currentUser) : normalizeClientId(clientId)===DEFAULT_CLIENT_ID;
+}
+
 export function completeAutomaticFeedback(record, currentUser, completedAt = nowIso()) {
   if (!record?.automaticFromEvaluation) throw new Error("Solo los feedbacks automaticos admiten esta gestion.");
   if (getAutomaticFeedbackFlowStatus(record) !== "advisor_accepted") {
@@ -3329,8 +3336,8 @@ export const gasHandlers = {
     const records = await readFeedbackRecords();
     const existingIndex = records.findIndex(item => Number(item?.id) === id);
     const existing = existingIndex >= 0 ? records[existingIndex] : null;
-    if (["supervisor", "coordinador"].includes(getRole(currentUser)) && (!existing || !isFeedbackOwner(existing, currentUser))) {
-      throw new Error("Solo puedes editar feedbacks generados desde tus propias evaluaciones.");
+    if (!canSaveManualFeedback(currentUser,existing,payload.clientId || payload.platformId)) {
+      throw new Error("Solo puedes editar tus propios feedbacks o crear feedbacks en Calidad B2B.");
     }
     if (existing && String(existing.estado || existing.status || "") === "closed" && getRole(currentUser) !== "admin") {
       throw new Error("Solo un administrador puede corregir un feedback cerrado.");

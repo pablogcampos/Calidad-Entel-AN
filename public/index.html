@@ -2528,7 +2528,7 @@ function getFeedbackStatusTheme(status){
 }
 
 function canCreateFeedback(user){
-  return ["admin","analista","formador","supervisor","coordinador"].includes(String(user?.rol||"").trim().toLowerCase());
+  return ["admin","analista","monitor","formador","supervisor","coordinador"].includes(String(user?.rol||"").trim().toLowerCase());
 }
 
 function canFillEvaluation(user){
@@ -5717,7 +5717,7 @@ function FeedbackVolumeModal({isOpen,onClose,onExecute,users,notify}){
   );
 }
 
-function FeedbackCenter({feedbackRecords,statisticalRecords,evaluationRecords,onCreateVolume,onEditFeedback,onDeleteFeedback,onMarkFeedbackRealized,onOpenEvaluation,onOpenPreview,advisorOptions,currentUser,notify,staffing,users}){
+function FeedbackCenter({feedbackRecords,statisticalRecords,evaluationRecords,onOpenFeedback,onCreateVolume,onEditFeedback,onDeleteFeedback,onMarkFeedbackRealized,onOpenEvaluation,onOpenPreview,advisorOptions,currentUser,notify,staffing,users}){
   const [filters,setFilters] = useState({dateFrom:"",dateTo:"",advisor:"all",author:"all",management:"all",classification:"all",status:"all",search:""});
   const [volumeModalOpen,setVolumeModalOpen] = useState(false);
   const role = String(currentUser?.rol||"").trim().toLowerCase();
@@ -5831,6 +5831,7 @@ function FeedbackCenter({feedbackRecords,statisticalRecords,evaluationRecords,on
         h("span",{style:{fontSize:12,color:"#8b92a5"}},"Feedbacks creados automaticamente desde las evaluaciones registradas")
       ),
       h("div",{style:{display:"flex",gap:10,flexWrap:"wrap",justifyContent:"flex-end"}},
+        onOpenFeedback && canCreateFeedback(currentUser) && h("button",{style:BTN("pink"),onClick:()=>onOpenFeedback("")},I("plus",14,"#fff"),"CREAR FEEDBACK"),
         role === "admin" && h("button",{style:BTN("out"),onClick:()=>setVolumeModalOpen(true)},I("bar",14,THEME.primary),"DASHBOARD")
       )
     ),
@@ -8442,10 +8443,12 @@ function App(){
   const notifyInactiveAdvisor = () => notify("e","Este asesor esta cesado. Mantiene su historial, pero no puede recibir nuevas evaluaciones, feedbacks o alertas.");
 
   const openFeedbackModal = assessor => {
+    if (!canCreateFeedback(currentUser)) return;
     if (assessor && isAdvisorInactive(assessor)) {
       notifyInactiveAdvisor();
       return;
     }
+    setEditingFeedbackRecord(null);
     setFeedbackModalAssessor(assessor || "");
   };
   const editFeedback = record => {
@@ -8644,7 +8647,7 @@ function App(){
           view==="notifications" && h(NotificationCenter,{currentUser,notifications:scopedNotifications,onRefresh:reloadNotifications,onOpenNotificationTarget:openNotificationTarget}),
           view==="legend" && h(LegendCenter,{concepts:scopedLegendConcepts,onRefresh:reloadLegend}),
           !isCommercialDevelopmentActive && view==="evaluations" && canViewDashboards(currentUser) && h(EvaluationsCenter,{currentUser,evaluationRecords:scopedEvaluationRecords,staffing:scopedStaffing,users:scopedUsers,onOpenEvaluation:openEvaluationModal,onDeleteEvaluation:eliminarEvaluacion,platformId:currentPlatformId}),
-          !isCommercialDevelopmentActive && view==="feedback" && canViewTeamFeedback(currentUser) && h(FeedbackCenter,{feedbackRecords:scopedFeedbackRecords,statisticalRecords:scopedFeedbackVolumeRecords,evaluationRecords:scopedEvaluationRecords,onCreateVolume:generarVolumenFeedbacks,onEditFeedback:editFeedback,onDeleteFeedback:eliminarFeedback,onMarkFeedbackRealized:marcarFeedbackRealizado,onOpenEvaluation:openEvaluationModal,onOpenPreview:openPreviewModal,advisorOptions,currentUser,notify,staffing:scopedStaffing,users:scopedUsers}),
+          !isCommercialDevelopmentActive && view==="feedback" && canViewTeamFeedback(currentUser) && h(FeedbackCenter,{feedbackRecords:scopedFeedbackRecords,statisticalRecords:scopedFeedbackVolumeRecords,evaluationRecords:scopedEvaluationRecords,onOpenFeedback:normalizeClientId(currentPlatformId)===DEFAULT_PLATFORM_ID ? openFeedbackModal : undefined,onCreateVolume:generarVolumenFeedbacks,onEditFeedback:editFeedback,onDeleteFeedback:eliminarFeedback,onMarkFeedbackRealized:marcarFeedbackRealizado,onOpenEvaluation:openEvaluationModal,onOpenPreview:openPreviewModal,advisorOptions,currentUser,notify,staffing:scopedStaffing,users:scopedUsers}),
           !isCommercialDevelopmentActive && view==="incidents" && canViewOperationalIncidents(currentUser) && h(OperationalIncidentsCenter,{records:scopedOperationalIncidents,noTipificationRecords:scopedNoTipificationRecords,currentUser,advisorOptions,staffing:scopedStaffing,onSave:guardarIncidenciaOperativa,onSaveNoTipification:guardarNoTipificacion,onUpdate:actualizarIncidenciaOperativa,onDelete:eliminarIncidenciaOperativa,notify}),
           !isCommercialDevelopmentActive && view==="salesValidation" && canViewSalesValidationModule(currentUser) && h(SalesValidationCenter,{records:scopedSalesValidations,currentUser,onSave:guardarValidacionVenta,onDelete:eliminarValidacionVenta,onRestore:restaurarValidacionVenta}),
           view==="commercialDevelopment" && canViewCommercialDevelopmentModule(currentUser,currentPlatformId) && (commercialDevelopmentLoading
