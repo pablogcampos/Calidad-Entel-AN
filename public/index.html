@@ -7991,36 +7991,9 @@ function App(){
   };
 
   const actualizarBloqueoFeedbacksUsuario = async(usuario, enabled) => {
-    const normalizedUserKey = normalizeLoginKey(usuario);
-    if (!normalizedUserKey) return false;
-    const latestUsers = await loadUsers({preferBackend:true}).catch(() => users);
-    const normalizedSource = normalizeUsersList(latestUsers && latestUsers.length ? latestUsers : users);
-    if (!normalizedSource.some(user => normalizeLoginKey(user.usuario) === normalizedUserKey)) {
-      notify("e","No se encontro el usuario para actualizar el bloqueo de feedbacks.");
-      return false;
-    }
-    const now = new Date().toISOString();
-    const updated = normalizeUsersList(normalizedSource.map(user => normalizeLoginKey(user.usuario) === normalizedUserKey
-      ? {
-          ...user,
-          feedbacksBlocked:Boolean(enabled),
-          feedbacksBlockedAt:enabled ? now : "",
-          feedbacksBlockedBy:enabled ? String(currentUser?.usuario || "").trim() : "",
-          updatedAt:now
-        }
-      : user
-    ));
-    const saved = await saveUsers(updated);
-    if (saved === false) {
-      notify("e","No se pudo guardar el bloqueo de feedbacks.");
-      return false;
-    }
-    setUsers(updated);
-    if (currentUser?.usuario && normalizeLoginKey(currentUser.usuario) === normalizedUserKey) {
-      setCurrentUser(prev => ({...prev,feedbacksBlocked:Boolean(enabled)}));
-    }
-    return true;
+    return guardarAccesosUsuario(usuario,{feedbacksBlocked:Boolean(enabled)});
   };
+
 
   const cambiarContrasenaActual = async(nuevaContrasena) => {
     if (!currentUser?.usuario) throw new Error("Inicia sesion para continuar.");

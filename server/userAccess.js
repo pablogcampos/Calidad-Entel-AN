@@ -10,7 +10,8 @@ export function applyUserAccessPatch(users,actor,username,patch){
   if(!Array.isArray(users)) fail('La lista de usuarios no es valida.',500);
   if(!patch||typeof patch!=='object'||Array.isArray(patch)) fail('Accesos invalidos.');
   const fields=Object.keys(patch);
-  if(!fields.length||fields.some(f=>!['platformAccess','staffingAccess'].includes(f))) fail('Campos de acceso invalidos.');
+  if(!fields.length||fields.some(f=>!['platformAccess','staffingAccess','feedbacksBlocked'].includes(f))) fail('Campos de acceso invalidos.');
+  if('feedbacksBlocked' in patch&&typeof patch.feedbacksBlocked!=='boolean') fail('Bloqueo invalido.');
   if('platformAccess' in patch&&(!Array.isArray(patch.platformAccess)||!patch.platformAccess.length||patch.platformAccess.some(p=>!Object.hasOwn(platforms,p)))) fail('Selecciona plataformas validas.');
   if('staffingAccess' in patch&&typeof patch.staffingAccess!=='boolean') fail('Acceso a Dotacion invalido.');
   const matches=users.filter(u=>key(u.usuario)===key(username));
@@ -18,6 +19,10 @@ export function applyUserAccessPatch(users,actor,username,patch){
   const next=users.map(user=>{
     if(key(user.usuario)!==key(username))return user;
     const updated={...user,...patch,updatedAt:new Date().toISOString()};
+    if('feedbacksBlocked' in patch){
+      updated.feedbacksBlockedAt=patch.feedbacksBlocked?updated.updatedAt:'';
+      updated.feedbacksBlockedBy=patch.feedbacksBlocked?actor.usuario:'';
+    }
     if(patch.platformAccess){
       updated.platformAccess=[...new Set(patch.platformAccess)];
       updated.clientId=updated.platformId=updated.platformAccess[0];

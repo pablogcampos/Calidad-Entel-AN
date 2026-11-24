@@ -1,3 +1,4 @@
+import {reconcileSpeechAdvisor} from './speechAdvisor.js';
 import {
   deleteSharedRecord,
   getDatabaseBackend,
@@ -453,7 +454,13 @@ export function withSpeechEvaluationWriteLock(task) {
 
 async function readFeedbackRecords() {
   const records = await readCachedSharedJson(FEEDBACK_KEY, []);
-  return Array.isArray(records) ? records : [];
+  return reconcileSpeechRecords(Array.isArray(records) ? records : []);
+}
+
+async function reconcileSpeechRecords(records){
+  if(!records.some(r=>r?.source==='speech_analytic'&&r.pendingAdvisorCreation))return records;
+  const [staffing,users]=await Promise.all([readCachedSharedJson('staffing',[]),readCachedSharedJson('users_v1',[])]);
+  return records.map(record=>reconcileSpeechAdvisor(record,staffing,users));
 }
 
 async function writeFeedbackRecords(records) {
@@ -3587,11 +3594,11 @@ export const gasHandlers = {
   },
 
   async listEvaluationRecords() {
-    return await readEvaluationRecordsFromFirebase();
+    return reconcileSpeechRecords(await readEvaluationRecordsFromFirebase());
   },
 
   async listEvaluationRecordsFast() {
-    return await readEvaluationRecordsFromFirebase();
+    return reconcileSpeechRecords(await readEvaluationRecordsFromFirebase());
   },
 
   async getEvaluationRecordDetail(id) {
@@ -3599,10 +3606,10 @@ export const gasHandlers = {
     if (deletedIds.has(normalizeId(id))) return null;
     const key = getEvaluationRecordKey(id);
     const detail = await readCachedSharedJson(key, null);
-    if (detail) return await enrichEvaluationWithDirectDriveFolder(normalizeEvaluationRecordForRuntime(detail));
+    if (detail) return await enrichEvaluationWithDirectDriveFolder((await reconcileSpeechRecords([normalizeEvaluationRecordForRuntime(detail)]))[0]);
     const records = await readEvaluationRecordsFromFirebase({ includeDetailFallback: false });
     const record = records.find(item => normalizeId(item?.id || item?.idEvaluacion) === normalizeId(id)) || null;
-    return record ? await enrichEvaluationWithDirectDriveFolder(record) : null;
+    return record ? await enrichEvaluationWithDirectDriveFolder((await reconcileSpeechRecords([record]))[0]) : null;
   },
 
   async saveEvaluationRecord(payload = {}) {

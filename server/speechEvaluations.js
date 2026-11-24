@@ -1,21 +1,13 @@
 import {createHash} from 'node:crypto';
+import {resolveSpeechAdvisor} from './speechAdvisor.js';
+export {resolveSpeechAdvisor} from './speechAdvisor.js';
 import {normalizeEvaluationSections,calculateEvaluationScore,applyRedistributedSectionScores,buildAutomaticFeedbackRecord,shouldCreateAutomaticFeedback,isAutomaticFeedbackBlockedForUser} from './gasHandlers.js';
 
 const norm=v=>String(v||'').trim().normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();
-const entel=u=>(Array.isArray(u.platformAccess)?u.platformAccess:[u.clientId||u.platformId||'entel_b2b']).includes('entel_b2b');
-const active=u=>!['cesado','inactivo','inactive'].includes(norm(u.estado));
 // Only equivalent criteria are mapped. NV-5.2 is not evidence of system typification.
 const criterionMap={'1.1':'NV-1.1','1.2':'NV-1.2','2.1':'NV-2.1','3.1':'NV-3.1','3.2':'NV-3.2','3.3':'NV-3.3','4.1':'NV-4.1','6.1':'NV-5.1','7.1':'NV-6.1','7.2':'NV-6.2'};
 export const speechEvaluationId=row=>'SA-'+createHash('sha256').update('entel_b2b:no_venta:'+norm(row.file)).digest('hex').slice(0,32);
 
-export function resolveSpeechAdvisor(row,staffing,users){
-  const matches=staffing.filter(s=>entel(s)&&norm(s.asesor)===norm(row.advisor));
-  const profile=matches.length===1?matches[0]:null;
-  const candidates=users.filter(u=>entel(u)&&active(u)&&norm(u.rol)==='asesor'&&
-    (profile?.usuarioAsignado?norm(u.usuario)===norm(profile.usuarioAsignado):[u.nombre,u.assessorName].some(v=>norm(v)===norm(row.advisor))));
-  const user=matches.length>1?null:candidates.length===1?candidates[0]:null;
-  return {profile,user,pending:!user};
-}
 
 export function buildSpeechEvaluation({row,user,staffing,users,batch,now}){
   const {profile,user:advisor,pending}=resolveSpeechAdvisor(row,staffing,users);
