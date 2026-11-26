@@ -5965,6 +5965,9 @@ function AdvisorPortal({currentUser,users,staffing,feedbackRecords,evaluationRec
 
   const runFeedbackAction = async(record, action) => {
     const responseText = String(responseDrafts[record.id] || "").trim();
+    if (action === "add_message" && record.automaticFromEvaluation && ["pending","pending_feedback","viewed"].includes(record.estado || record.status || "pending")) {
+      action = "submit_response_and_accept";
+    }
     if ((action === "accept_feedback" || action === "reject_feedback") && !responseText) {
       notify("e","Para validar el feedback debes dejar un comentario.");
       return;
@@ -5974,7 +5977,7 @@ function AdvisorPortal({currentUser,users,staffing,feedbackRecords,evaluationRec
       await updateFeedbackEntry({id:record.id,action,responseText,currentUser,actorUser:currentUser.usuario,actorName:currentUser.nombre,actorRole:ROL_LABEL[currentUser.rol] || currentUser.rol});
       setResponseDrafts(prev=>({...prev,[record.id]:""}));
       await onFeedbackUpdated();
-      notify("s",action==="accept_feedback" ? "Feedback aceptado." : action==="reject_feedback" ? "Feedback marcado como no aceptado." : "Comentario enviado.");
+      notify("s",["accept_feedback","submit_response_and_accept"].includes(action) ? "Compromiso guardado. Feedback aceptado." : action==="reject_feedback" ? "Feedback marcado como no aceptado." : "Comentario enviado.");
     }catch(err){
       notify("e",err?.message || "No se pudo actualizar el feedback.");
     }finally{

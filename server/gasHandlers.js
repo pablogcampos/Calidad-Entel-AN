@@ -564,6 +564,14 @@ export function canSaveManualFeedback(currentUser,existing,clientId){
   return existing ? isFeedbackOwner(existing,currentUser) : normalizeClientId(clientId)===DEFAULT_CLIENT_ID;
 }
 
+export function isFeedbackAdvisor(record,user){
+  if(getRole(user)!=='asesor')return false;
+  if(record.advisorUser)return normalizeText(user.usuario)===normalizeText(record.advisorUser);
+  if(record.source==='speech_analytic')return false;
+  const name=normalizeText(record.asesorNombre||record.assessor);
+  return Boolean(name)&&[user.assessorName,user.nombre].some(value=>normalizeText(value)===name);
+}
+
 export function completeAutomaticFeedback(record, currentUser, completedAt = nowIso()) {
   if (!record?.automaticFromEvaluation) throw new Error("Solo los feedbacks automaticos admiten esta gestion.");
   if (getAutomaticFeedbackFlowStatus(record) !== "advisor_accepted") {
@@ -3444,11 +3452,7 @@ export const gasHandlers = {
     const actorName = String(payload.acceptedByName || payload.actorName || currentUser.nombre || "").trim();
     const actorUser = String(payload.acceptedByUser || payload.actorUser || currentUser.usuario || "").trim();
     const actorRole = String(payload.actorRole || ROLE_LABELS[getRole(currentUser)] || getRole(currentUser)).trim();
-    const actorIsAdvisor = record.source === 'speech_analytic'
-      ? !record.pendingAdvisorCreation && getRole(currentUser) === 'asesor' && Boolean(record.advisorUser) && normalizeText(currentUser.usuario) === normalizeText(record.advisorUser)
-      :
-      normalizeText(actorUser) === normalizeText(record.advisorUser) ||
-      getRole(currentUser) === "asesor";
+    const actorIsAdvisor = isFeedbackAdvisor(record,currentUser);
     const actorCanManageOwn = ["supervisor", "coordinador"].includes(getRole(currentUser)) && isFeedbackOwner(record, currentUser);
 
     if ((!canManageFeedback(currentUser) || (["supervisor", "coordinador"].includes(getRole(currentUser)) && !actorCanManageOwn)) && !actorIsAdvisor) {
