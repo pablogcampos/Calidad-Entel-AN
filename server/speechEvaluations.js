@@ -1,7 +1,7 @@
 import {createHash} from 'node:crypto';
 import {resolveSpeechAdvisor} from './speechAdvisor.js';
 export {resolveSpeechAdvisor} from './speechAdvisor.js';
-import {normalizeEvaluationSections,calculateEvaluationScore,applyRedistributedSectionScores,buildAutomaticFeedbackRecord,shouldCreateAutomaticFeedback,isAutomaticFeedbackBlockedForUser} from './gasHandlers.js';
+import {normalizeEvaluationSections,calculateEvaluationScore,applyRedistributedSectionScores,buildAutomaticFeedbackRecord,shouldCreateAutomaticFeedback,isAutomaticFeedbackBlockedForEvaluation} from './gasHandlers.js';
 
 const norm=v=>String(v||'').trim().normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();
 // Only equivalent criteria are mapped. NV-5.2 is not evidence of system typification.
@@ -45,7 +45,7 @@ export function buildSpeechEvaluation({row,user,staffing,users,batch,now}){
     oportunidadMejoraGeneral:sections.filter(s=>s.resultado==='No cumple').map(s=>s.nombreSeccion+': '+s.oportunidadMejora).join('\n'),
     observacionGeneral:pendingCriteria.length?'Nota PUE provisional: criterios pendientes de revision.':'Evaluacion importada desde Speech analytic.'};
   let feedback=null;
-  if(shouldCreateAutomaticFeedback(evaluation,user)&&!isAutomaticFeedbackBlockedForUser(user,users)){
+  if(shouldCreateAutomaticFeedback(evaluation,user)&&!isAutomaticFeedbackBlockedForEvaluation(evaluation,user,users)){
     feedback={...buildAutomaticFeedbackRecord({evaluation,currentUser:user,role:norm(user.rol)==='monitor'?'analista':norm(user.rol),clientId:'entel_b2b',evaluationId:id,now,id:Number.parseInt(id.slice(3,16),16)}),
       source:'speech_analytic',saImportId:batch.id,pendingAdvisorCreation:pending,files:[],messages:[]};
     evaluation.feedbackId=feedback.id;

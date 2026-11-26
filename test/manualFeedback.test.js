@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import vm from 'node:vm';
-import {canSaveManualFeedback,isAutomaticFeedbackBlockedForUser} from '../server/gasHandlers.js';
+import {canSaveManualFeedback,isAutomaticFeedbackBlockedForUser,isAutomaticFeedbackBlockedForEvaluation} from '../server/gasHandlers.js';
 test('automatic block does not block manual creation for authorized roles',()=>{
  const html=readFileSync(new URL('../public/index.html',import.meta.url),'utf8');
  const source=html.match(/function canCreateFeedback\(user\)\{[\s\S]*?\n\}/)[0];
@@ -13,6 +13,10 @@ test('automatic block does not block manual creation for authorized roles',()=>{
    assert.equal(canCreate(user),true);
    assert.equal(canSaveManualFeedback(user,null,'entel_b2b'),true);
    assert.equal(isAutomaticFeedbackBlockedForUser(user,[user]),feedbacksBlocked);
+   assert.equal(isAutomaticFeedbackBlockedForEvaluation({source:'speech_analytic'},user,[user]),feedbacksBlocked);
+   assert.equal(isAutomaticFeedbackBlockedForEvaluation({},user,[user]),false);
+   assert.equal(isAutomaticFeedbackBlockedForEvaluation({source:'manual'},user,[user]),false);
+   assert.equal(isAutomaticFeedbackBlockedForEvaluation({source:'speech_analytic'},{...user,usuario:'other'},[user]),false);
   }
  }
  assert.equal(canCreate({rol:'asesor',feedbacksBlocked:true}),false);

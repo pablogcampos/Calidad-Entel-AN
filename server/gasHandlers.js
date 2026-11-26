@@ -557,6 +557,10 @@ export function isAutomaticFeedbackBlockedForUser(currentUser, users = []) {
   });
 }
 
+export function isAutomaticFeedbackBlockedForEvaluation(evaluation,currentUser,users=[]){
+  return evaluation?.source==='speech_analytic' && isAutomaticFeedbackBlockedForUser(currentUser,users);
+}
+
 export function canSaveManualFeedback(currentUser,existing,clientId){
   const role=getRole(currentUser);
   if (!["admin","analista","formador","supervisor","coordinador"].includes(role)) return false;
@@ -654,7 +658,7 @@ async function ensureAutomaticFeedbackForEvaluation(evaluation, currentUser) {
   const clientId = normalizeClientId(evaluation?.clientId || evaluation?.platformId);
   if (!shouldCreateAutomaticFeedback(evaluation, currentUser)) return null;
   const users = await readCachedSharedJson("users_v1", []);
-  if (isAutomaticFeedbackBlockedForUser(currentUser, users)) return null;
+  if (isAutomaticFeedbackBlockedForEvaluation(evaluation, currentUser, users)) return null;
 
   const evaluationId = normalizeId(evaluation?.idEvaluacion || evaluation?.id);
   if (!evaluationId) return null;
